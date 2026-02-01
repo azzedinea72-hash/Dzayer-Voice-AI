@@ -1,0 +1,7 @@
+{
+  "name": "Dzayer Voice AI",
+  "description": "نظام متطور لتحويل النصوص المكتوبة بالدارجة الجزائرية إلى كلام مسموع بجودة عالية وواقعية باستخدام تقنيات Gemini TTS.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
