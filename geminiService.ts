@@ -1,14 +1,16 @@
 
 import { GoogleGenAI, Modality } from "@google/genai";
-import { VoiceName } from "./types";
-import { decode, decodeAudioData, audioBufferToWav } from "./audioUtils";
+import { VoiceName } from "./types.ts";
+import { decode, decodeAudioData, audioBufferToWav } from "./audioUtils.ts";
 
-const API_KEY = process.env.API_KEY || "";
+const API_KEY = (typeof process !== 'undefined' ? process.env.API_KEY : '') || "";
 
 export async function generateAlgerianSpeech(text: string, voice: VoiceName): Promise<string> {
+  if (!API_KEY) {
+    throw new Error("API Key is missing. Please check your Netlify environment variables.");
+  }
+
   const ai = new GoogleGenAI({ apiKey: API_KEY });
-  
-  // Custom instructions to guide Gemini for Algerian accent
   const prompt = `Convert the following Algerian Darja text to natural sounding speech with a clear Algerian accent: "${text}"`;
 
   try {
@@ -34,10 +36,9 @@ export async function generateAlgerianSpeech(text: string, voice: VoiceName): Pr
     const decodedData = decode(base64Audio);
     const audioBuffer = await decodeAudioData(decodedData, audioCtx, 24000, 1);
     
-    // Convert to playable URL
     const wavBlob = audioBufferToWav(audioBuffer);
     return URL.createObjectURL(wavBlob);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Speech generation error:", error);
     throw error;
   }
