@@ -1,170 +1,168 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { VoiceName, VoiceOption, GenerationState } from './types.ts';
+import React, { useState, useEffect } from 'react';
+import { VoiceName, VoiceOption, GenerationState, AlgerianRegion, RegionOption } from './types.ts';
 import { generateAlgerianSpeech } from './geminiService.ts';
 
 const VOICE_OPTIONS: VoiceOption[] = [
-  { id: VoiceName.Kore, name: 'كوري (Kore)', gender: 'female', description: 'صوت نسائي هادئ وواضح، مناسب للرسائل الطويلة.' },
-  { id: VoiceName.Puck, name: 'باك (Puck)', gender: 'male', description: 'صوت رجولي عميق وقوي.' },
-  { id: VoiceName.Charon, name: 'شارون (Charon)', gender: 'male', description: 'صوت متزن يصلح للنشرات الإخبارية.' },
-  { id: VoiceName.Zephyr, name: 'زفير (Zephyr)', gender: 'female', description: 'صوت نسائي حيوي ومتحمس.' },
-  { id: VoiceName.Fenrir, name: 'فينرير (Fenrir)', gender: 'male', description: 'صوت رجولي شاب وودود.' },
+  { id: VoiceName.Zephyr, name: 'زفير', gender: 'female', description: 'حيوي ومتحمس', persona: 'شابة جامعية حيويّة' },
+  { id: VoiceName.Aoede, name: 'آويدي', gender: 'female', description: 'ناعم وهادئ', persona: 'صوت مثقف وهادئ جداً' },
+  { id: VoiceName.Kore, name: 'كوري', gender: 'female', description: 'رسمي وواضح', persona: 'مذيعة أخبار رسمية' },
+  { id: VoiceName.Puck, name: 'باك', gender: 'male', description: 'قوي وعميق', persona: 'رجل في الأربعين، وقور' },
+  { id: VoiceName.Fenrir, name: 'فينرير', gender: 'male', description: 'ودود وشبابي', persona: 'شاب جزائري "فهّامة" وودود' },
+  { id: VoiceName.Charon, name: 'شارون', gender: 'male', description: 'متزن وثقيل', persona: 'صوت حكيم وناضج' },
+];
+
+const REGION_OPTIONS: RegionOption[] = [
+  { id: 'neutral', name: 'لهجة بيضاء', icon: '🇩🇿', description: 'مفهومة من طرف الجميع' },
+  { id: 'alger', name: 'عاصمية', icon: '🏙️', description: 'لكنة وسط البلاد (دزاير)' },
+  { id: 'oran', name: 'وهرانية', icon: '🌅', description: 'لكنة الغرب الباهي' },
+  { id: 'constantine', name: 'قسنطينية', icon: '🌉', description: 'لكنة الشرق العريق' },
+  { id: 'sahara', name: 'صحراوية', icon: '🌴', description: 'لكنة الجنوب الأصيل' },
 ];
 
 const PRESET_PHRASES = [
-  "واش راك؟ لاباس؟",
-  "صحا فطوركم وعيدكم مبارك",
-  "الجزائر بلادنا شابة بزاف، لازم نحافظو عليها",
-  "راحت عليا الطوبيس، راني حاصُل هنايا",
-  "القهوة نتاع الصباح هي الصح في النهار"
+  "يا خويا واش راك؟ توحشناك بزاف!",
+  "أرواح تشرب القهوة، راهي واجدة وسخونة",
+  "الجزائر قارة، من الشمال للجنوب كلش شباب",
+  "بشوية برك، كل عطلة فيها خير"
 ];
 
 const App: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [selectedVoice, setSelectedVoice] = useState<VoiceName>(VoiceName.Zephyr);
-  const [hasKey, setHasKey] = useState<boolean>(true);
+  const [selectedRegion, setSelectedRegion] = useState<AlgerianRegion>('neutral');
+  const [isKeyReady, setIsKeyReady] = useState<boolean>(false);
   const [state, setState] = useState<GenerationState>({
     isGenerating: false,
     error: null,
     audioUrl: null,
   });
 
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  // التحقق من وجود مفتاح عند التحميل
   useEffect(() => {
     const checkKey = async () => {
       const isConfigured = !!process.env.API_KEY;
       const hasSelected = await (window as any).aistudio?.hasSelectedApiKey?.();
-      setHasKey(isConfigured || hasSelected);
+      setIsKeyReady(isConfigured || hasSelected);
     };
     checkKey();
   }, []);
 
-  const handleOpenKeyDialog = async () => {
+  const handleSetupKey = async () => {
     try {
       await (window as any).aistudio?.openSelectKey?.();
-      setHasKey(true);
-      setState(prev => ({ ...prev, error: null }));
-    } catch (err) {
-      console.error("Failed to open key dialog", err);
-    }
+      setIsKeyReady(true);
+    } catch (e) { console.error(e); }
   };
 
   const handleGenerate = async () => {
-    if (!inputText.trim()) {
-      setState(prev => ({ ...prev, error: "من فضلك أدخل نصاً بالدارجة" }));
-      return;
-    }
-
-    setState(prev => ({ ...prev, isGenerating: true, error: null }));
+    if (!inputText.trim()) return;
+    setState(p => ({ ...p, isGenerating: true, error: null }));
 
     try {
-      const url = await generateAlgerianSpeech(inputText, selectedVoice);
-      setState(prev => ({ ...prev, audioUrl: url, isGenerating: false }));
+      const url = await generateAlgerianSpeech(inputText, selectedVoice, selectedRegion);
+      setState(p => ({ ...p, audioUrl: url, isGenerating: false }));
     } catch (err: any) {
-      let errorMessage = "حدث خطأ أثناء توليد الصوت. حاول مرة أخرى.";
-      
-      if (err.message === "API_KEY_MISSING") {
-        setHasKey(false);
-        errorMessage = "مفتاح API غير متوفر. يرجى إعداده للمتابعة.";
-      } else if (err.message === "INVALID_KEY") {
-        setHasKey(false);
-        errorMessage = "المفتاح المستخدم غير صالح أو انتهت صلاحيته.";
+      let msg = "حدث خطأ. تأكد من اتصالك بالإنترنت.";
+      if (err.message === "KEY_NOT_FOUND" || err.message === "KEY_INVALID") {
+        setIsKeyReady(false);
+        msg = "يرجى تفعيل مفتاح الـ API.";
       }
-
-      setState(prev => ({ 
-        ...prev, 
-        isGenerating: false, 
-        error: errorMessage 
-      }));
+      setState(p => ({ ...p, isGenerating: false, error: msg }));
     }
   };
 
-  const handlePresetClick = (phrase: string) => {
-    setInputText(phrase);
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
-      <header className="bg-white shadow-sm sticky top-0 z-50 px-4 py-4 md:px-10 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center text-white shadow-md">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  if (!isKeyReady) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-right" dir="rtl">
+        <div className="bg-white rounded-[2rem] p-10 max-w-md w-full shadow-2xl animate-in zoom-in duration-500">
+          <div className="w-24 h-24 bg-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-8 rotate-3 shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-emerald-900">Dzayer Voice AI</h1>
-            <p className="text-xs text-slate-500 font-medium">صوت الدزاير بذكاء اصطناعي</p>
-          </div>
-        </div>
-        
-        {!hasKey && (
+          <h2 className="text-3xl font-black text-slate-800 mb-4">Dzayer Voice AI</h2>
+          <p className="text-slate-500 mb-10 leading-relaxed">
+            مرحباً بك! لتشغيل محرك الأصوات الجزائرية، يرجى تفعيل مفتاح الـ API الخاص بك من Google AI Studio.
+          </p>
           <button 
-            onClick={handleOpenKeyDialog}
-            className="text-xs bg-amber-100 text-amber-700 px-3 py-2 rounded-lg font-bold hover:bg-amber-200 transition-colors flex items-center gap-2"
+            onClick={handleSetupKey}
+            className="w-full py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xl shadow-xl transition-all transform active:scale-95"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L7 17l-1 1V15l1-1 1-1V12l1-1 1-1 1.257-1.257A6 6 0 1118 8zm-6 1a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-            </svg>
-            إعداد المفتاح
+            تفعيل المحرك الآن
           </button>
-        )}
-      </header>
+        </div>
+      </div>
+    );
+  }
 
-      <main className="max-w-4xl mx-auto px-4 mt-8">
-        {!hasKey && (
-          <div className="mb-8 bg-amber-50 border border-amber-200 rounded-2xl p-6 text-amber-900">
-            <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              تنبيه: مفتاح API مطلوب
-            </h3>
-            <p className="text-sm mb-4">
-              لتمكين تحويل النص إلى صوت، يرجى اختيار مفتاح API صالح من مشروع مدفوع. يمكنك الحصول عليه من لوحة تحكم Google AI Studio.
-            </p>
-            <div className="flex gap-3">
-              <button 
-                onClick={handleOpenKeyDialog}
-                className="bg-amber-600 text-white px-5 py-2 rounded-xl font-bold hover:bg-amber-700 transition-all shadow-md"
-              >
-                اختيار المفتاح الآن
-              </button>
-              <a 
-                href="https://ai.google.dev/gemini-api/docs/billing" 
-                target="_blank" 
-                rel="noreferrer"
-                className="bg-white border border-amber-300 text-amber-700 px-5 py-2 rounded-xl font-bold hover:bg-amber-50 transition-all"
-              >
-                وثائق الفوترة
-              </a>
+  return (
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-20" dir="rtl">
+      {/* Navbar */}
+      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 px-6 py-4">
+        <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black text-lg">DZ</div>
+            <div>
+              <h1 className="font-black text-slate-900 leading-none">Dzayer Voice</h1>
+              <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Premium AI Engine</span>
             </div>
           </div>
-        )}
+          <div className="flex gap-1.5">
+            <div className="w-6 h-4 bg-emerald-600 rounded-[2px]"></div>
+            <div className="w-6 h-4 bg-white border border-slate-200 rounded-[2px]"></div>
+            <div className="w-6 h-4 bg-red-600 rounded-[2px]"></div>
+          </div>
+        </div>
+      </nav>
 
-        <section className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-black mb-4 text-slate-800">صوت واقعي باللهجة الجزائرية</h2>
-          <p className="text-slate-600 max-w-xl mx-auto">
-            تحويل الدارجة الجزائرية إلى كلام مسموع بجودة عالية باستخدام Gemini TTS.
-          </p>
-        </section>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <label className="block text-sm font-bold text-slate-700 mb-2">النص بالدارجة</label>
+      <main className="max-w-6xl mx-auto px-4 mt-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+          
+          {/* Main Input Area */}
+          <div className="lg:col-span-8 space-y-8">
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-8">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-black text-slate-800 text-lg">اكتب بالدارجة الجزائرية</h3>
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase">Input Field</span>
+              </div>
+              
               <textarea
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="أكتب هنا بالدارجة... مثلاً: واش راكم يا جماعة؟"
-                className="w-full h-40 p-4 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-emerald-500 transition-all outline-none resize-none text-lg"
+                placeholder="مثلاً: واش راك خويا؟ لاباس عليك؟ توحشنا القعدة معاكم..."
+                className="w-full h-56 bg-transparent text-2xl outline-none resize-none placeholder-slate-200 font-medium"
               />
-              <div className="mt-4 flex flex-wrap gap-2">
-                {PRESET_PHRASES.map((phrase, i) => (
-                  <button key={i} onClick={() => handlePresetClick(phrase)} className="text-xs bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 hover:bg-emerald-50 transition-colors">
-                    {phrase}
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                {PRESET_PHRASES.map(p => (
+                  <button 
+                    key={p} 
+                    onClick={() => setInputText(p)} 
+                    className="text-xs bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-700 px-4 py-2.5 rounded-xl border border-slate-100 transition-all font-medium"
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Region Selector */}
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-8">
+              <h3 className="font-black text-slate-800 text-lg mb-6">تخصيص اللهجة الجهوية</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                {REGION_OPTIONS.map(r => (
+                  <button
+                    key={r.id}
+                    onClick={() => setSelectedRegion(r.id)}
+                    className={`flex flex-col items-center p-4 rounded-3xl border-2 transition-all ${
+                      selectedRegion === r.id 
+                        ? 'border-emerald-500 bg-emerald-50 shadow-md transform -translate-y-1' 
+                        : 'border-slate-50 bg-slate-50/50 hover:border-slate-200'
+                    }`}
+                  >
+                    <span className="text-3xl mb-2">{r.icon}</span>
+                    <span className="font-bold text-sm text-slate-800">{r.name}</span>
+                    <span className="text-[9px] text-slate-400 mt-1 text-center leading-tight">{r.description}</span>
                   </button>
                 ))}
               </div>
@@ -172,67 +170,93 @@ const App: React.FC = () => {
 
             <button
               onClick={handleGenerate}
-              disabled={state.isGenerating || !inputText.trim() || !hasKey}
-              className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${
-                state.isGenerating || !hasKey ? 'bg-slate-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white transform active:scale-95'
+              disabled={state.isGenerating || !inputText}
+              className={`w-full py-6 rounded-[2rem] font-black text-2xl shadow-2xl transition-all transform active:scale-[0.98] flex items-center justify-center gap-4 ${
+                state.isGenerating 
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:shadow-emerald-200'
               }`}
             >
-              {state.isGenerating ? "جاري التوليد..." : "توليد الصوت"}
+              {state.isGenerating ? (
+                <>
+                  <div className="w-6 h-6 border-4 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                  جاري معالجة الصوت...
+                </>
+              ) : (
+                "توليد الصوت الجزائري"
+              )}
             </button>
 
-            {state.error && (
-              <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm border border-red-100 flex items-center gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                <span>{state.error}</span>
-                {!hasKey && (
-                  <button onClick={handleOpenKeyDialog} className="underline font-bold ml-auto shrink-0">إعداد الآن</button>
-                )}
-              </div>
-            )}
-
             {state.audioUrl && (
-              <div className="bg-white p-6 rounded-2xl shadow-xl border border-emerald-100 animate-in fade-in slide-in-from-bottom-4">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">جاهز للاستماع</span>
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl border-b-[8px] border-emerald-500 animate-in slide-in-from-bottom-6 duration-500">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-800">الصوت جاهز الآن</h4>
+                    <p className="text-xs text-slate-400">بصوت {VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name} - لهجة {REGION_OPTIONS.find(r => r.id === selectedRegion)?.name}</p>
+                  </div>
                 </div>
                 <audio controls src={state.audioUrl} className="w-full" autoPlay />
               </div>
             )}
           </div>
 
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+          {/* Sidebar: Voice Selection */}
+          <div className="lg:col-span-4 space-y-6">
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-8 sticky top-28">
+              <h3 className="font-black text-slate-800 text-lg mb-6 flex justify-between items-center">
+                اختر المعلق
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                اختر الصوت
               </h3>
-              <div className="space-y-2">
-                {VOICE_OPTIONS.map((voice) => (
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                {VOICE_OPTIONS.map(v => (
                   <button
-                    key={voice.id}
-                    onClick={() => setSelectedVoice(voice.id)}
-                    className={`w-full text-right p-3 rounded-xl border transition-all ${
-                      selectedVoice === voice.id ? 'bg-emerald-50 border-emerald-400 shadow-sm' : 'bg-white border-slate-100 hover:border-slate-300'
+                    key={v.id}
+                    onClick={() => setSelectedVoice(v.id)}
+                    className={`w-full text-right p-5 rounded-3xl border-2 transition-all relative overflow-hidden ${
+                      selectedVoice === v.id 
+                        ? 'border-emerald-500 bg-emerald-50/50 shadow-md' 
+                        : 'border-slate-50 hover:border-slate-200 bg-slate-50/30'
                     }`}
                   >
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-bold text-sm text-slate-800">{voice.name}</span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${voice.gender === 'male' ? 'bg-blue-50 text-blue-600' : 'bg-pink-50 text-pink-600'}`}>
-                        {voice.gender === 'male' ? 'ذكر' : 'أنثى'}
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-black text-slate-800">{v.name}</span>
+                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase ${v.gender === 'male' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'}`}>
+                        {v.gender === 'male' ? 'ذكر' : 'أنثى'}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-500 leading-tight">{voice.description}</div>
+                    <div className="text-[10px] font-bold text-emerald-600 mb-1">{v.persona}</div>
+                    <div className="text-[10px] text-slate-400 leading-tight">{v.description}</div>
                   </button>
                 ))}
               </div>
+
+              <div className="mt-8 p-6 bg-slate-900 rounded-3xl text-white relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+                <h5 className="font-black text-xs mb-2 text-emerald-400">💡 نصيحة ذكية</h5>
+                <p className="text-[10px] leading-relaxed text-slate-300">
+                  للحصول على نطق ممتاز للهجة الوهرانية أو القسنطينية، حاول كتابة الكلمات كما تُنطق في تلك الجهة (مثلاً: "ڤاع" بدل "كل").
+                </p>
+              </div>
             </div>
           </div>
+
         </div>
       </main>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+      `}</style>
     </div>
   );
 };

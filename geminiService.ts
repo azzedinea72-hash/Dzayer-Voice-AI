@@ -1,19 +1,32 @@
 
 import { GoogleGenAI, Modality } from "@google/genai";
-import { VoiceName } from "./types.ts";
+import { VoiceName, AlgerianRegion } from "./types.ts";
 import { decode, decodeAudioData, audioBufferToWav } from "./audioUtils.ts";
 
-export async function generateAlgerianSpeech(text: string, voice: VoiceName): Promise<string> {
-  // استخدام المفتاح من البيئة مباشرة كما هو مطلوب
+export async function generateAlgerianSpeech(
+  text: string, 
+  voice: VoiceName, 
+  region: AlgerianRegion
+): Promise<string> {
   const apiKey = process.env.API_KEY;
   
   if (!apiKey) {
-    throw new Error("API_KEY_MISSING");
+    throw new Error("KEY_NOT_FOUND");
   }
 
-  // إنشاء نسخة جديدة في كل مرة لضمان استخدام المفتاح المحدث
   const ai = new GoogleGenAI({ apiKey });
-  const prompt = `Convert the following Algerian Darja text to natural sounding speech with a clear Algerian accent: "${text}"`;
+  
+  const regionPrompts: Record<AlgerianRegion, string> = {
+    alger: "بلكنة عاصمية عريقة (وسط الجزائر)",
+    oran: "بلكنة وهرانية قوية (غرب الجزائر) مع نبرة سريعة ومميزة",
+    constantine: "بلكنة قسنطينية رصينة (شرق الجزائر) مع التركيز على مخارج الحروف القاف والتاء",
+    sahara: "بلكنة صحراوية بدوية أصيلة (جنوب الجزائر) بنبرة عميقة وهادئة",
+    neutral: "بلهجة جزائرية بيضاء مفهومة للجميع"
+  };
+
+  const prompt = `حول النص التالي إلى كلام مسموع باللهجة الجزائرية (الدارجة) ${regionPrompts[region]}. 
+  اجعل الكلام يبدو طبيعياً جداً، بشرياً، ومليئاً بالمشاعر. 
+  النص: "${text}"`;
 
   try {
     const response = await ai.models.generateContent({
@@ -31,7 +44,7 @@ export async function generateAlgerianSpeech(text: string, voice: VoiceName): Pr
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) {
-      throw new Error("لم يتم إرجاع بيانات صوتية من الخادم.");
+      throw new Error("API_ERROR");
     }
 
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -41,10 +54,9 @@ export async function generateAlgerianSpeech(text: string, voice: VoiceName): Pr
     const wavBlob = audioBufferToWav(audioBuffer);
     return URL.createObjectURL(wavBlob);
   } catch (error: any) {
-    if (error.message?.includes("Requested entity was not found")) {
-      throw new Error("INVALID_KEY");
+    if (error.message?.includes("not found")) {
+      throw new Error("KEY_INVALID");
     }
-    console.error("Speech generation error:", error);
     throw error;
   }
 }

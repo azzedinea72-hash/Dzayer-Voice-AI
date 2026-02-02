@@ -4,13 +4,24 @@ export enum VoiceName {
   Puck = 'Puck',
   Charon = 'Charon',
   Zephyr = 'Zephyr',
-  Fenrir = 'Fenrir'
+  Fenrir = 'Fenrir',
+  Aoede = 'Aoede'
 }
+
+export type AlgerianRegion = 'alger' | 'oran' | 'constantine' | 'sahara' | 'neutral';
 
 export interface VoiceOption {
   id: VoiceName;
   name: string;
   gender: 'male' | 'female';
+  description: string;
+  persona: string;
+}
+
+export interface RegionOption {
+  id: AlgerianRegion;
+  name: string;
+  icon: string;
   description: string;
 }
 
