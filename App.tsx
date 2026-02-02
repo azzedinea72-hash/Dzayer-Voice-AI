@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { VoiceName, VoiceOption, GenerationState, AlgerianRegion, RegionOption } from './types.ts';
 import { generateAlgerianSpeech } from './geminiService.ts';
 
@@ -8,7 +8,7 @@ const VOICE_OPTIONS: VoiceOption[] = [
   { id: VoiceName.Aoede, name: 'آويدي', gender: 'female', description: 'ناعم وهادئ', persona: 'صوت مثقف وهادئ جداً' },
   { id: VoiceName.Kore, name: 'كوري', gender: 'female', description: 'رسمي وواضح', persona: 'مذيعة أخبار رسمية' },
   { id: VoiceName.Puck, name: 'باك', gender: 'male', description: 'قوي وعميق', persona: 'رجل في الأربعين، وقور' },
-  { id: VoiceName.Fenrir, name: 'فينرير', gender: 'male', description: 'ودود وشبابي', persona: 'شاب جزائري "فهّامة" وودود' },
+  { id: VoiceName.Fenrir, name: 'فينرير', gender: 'male', description: 'ودود وششبابي', persona: 'شاب جزائري "فهّامة" وودود' },
   { id: VoiceName.Charon, name: 'شارون', gender: 'male', description: 'متزن وثقيل', persona: 'صوت حكيم وناضج' },
 ];
 
@@ -31,42 +31,11 @@ const App: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [selectedVoice, setSelectedVoice] = useState<VoiceName>(VoiceName.Zephyr);
   const [selectedRegion, setSelectedRegion] = useState<AlgerianRegion>('neutral');
-  const [isKeyReady, setIsKeyReady] = useState<boolean>(false);
-  const [checkingKey, setCheckingKey] = useState<boolean>(true);
   const [state, setState] = useState<GenerationState>({
     isGenerating: false,
     error: null,
     audioUrl: null,
   });
-
-  useEffect(() => {
-    const checkKeyStatus = async () => {
-      try {
-        // التحقق مما إذا كان المفتاح موجوداً في البيئة أو تم اختياره مسبقاً
-        const hasKey = await (window as any).aistudio?.hasSelectedApiKey?.();
-        setIsKeyReady(!!process.env.API_KEY || !!hasKey);
-      } catch (e) {
-        setIsKeyReady(!!process.env.API_KEY);
-      } finally {
-        setCheckingKey(false);
-      }
-    };
-    checkKeyStatus();
-  }, []);
-
-  const handleOpenKeySelector = async () => {
-    try {
-      if ((window as any).aistudio?.openSelectKey) {
-        await (window as any).aistudio.openSelectKey();
-        // بمجرد استدعاء النافذة، نفترض النجاح للمضي قدماً في واجهة التطبيق
-        setIsKeyReady(true);
-      } else {
-        alert("خاصية اختيار المفتاح غير مدعومة في هذا المتصفح.");
-      }
-    } catch (e) {
-      console.error("Failed to open key selector", e);
-    }
-  };
 
   const handleGenerate = async () => {
     if (!inputText.trim()) return;
@@ -77,58 +46,13 @@ const App: React.FC = () => {
       setState(p => ({ ...p, audioUrl: url, isGenerating: false }));
     } catch (err: any) {
       console.error(err);
-      let msg = "حدث خطأ أثناء الاتصال بالخادم.";
-      
-      // إذا فشل الطلب بسبب المفتاح، نعيد المستخدم لواجهة التفعيل
-      if (err.message?.includes("not found") || err.message === "KEY_NOT_FOUND") {
-        setIsKeyReady(false);
-        msg = "يرجى إعادة تفعيل المحرك باختيار مفتاح API صالح.";
-      }
-      
-      setState(p => ({ ...p, isGenerating: false, error: msg }));
+      setState(p => ({ 
+        ...p, 
+        isGenerating: false, 
+        error: "حدث خطأ في معالجة الصوت. يرجى المحاولة مرة أخرى." 
+      }));
     }
   };
-
-  if (checkingKey) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  if (!isKeyReady) {
-    return (
-      <div className="min-h-screen bg-[#006233] flex items-center justify-center p-6 text-right" dir="rtl">
-        <div className="bg-white rounded-[2.5rem] p-12 max-w-lg w-full shadow-2xl text-center border-t-8 border-red-600">
-          <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-8">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 00-2 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h2 className="text-3xl font-black text-slate-800 mb-4">تفعيل Dzayer Voice AI</h2>
-          <p className="text-slate-500 mb-10 leading-relaxed text-lg">
-            لتشغيل التطبيق على Netlify دون إعدادات معقدة، يرجى الضغط على الزر أدناه لاختيار مفتاح الـ API الخاص بك من Google.
-          </p>
-          <button 
-            onClick={handleOpenKeySelector}
-            className="w-full py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xl shadow-xl transition-all transform active:scale-95 flex items-center justify-center gap-3"
-          >
-            <span>بدء تشغيل المحرك</span>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </button>
-          <div className="mt-8 pt-6 border-t border-slate-100 flex justify-center gap-4 grayscale opacity-50">
-             <div className="w-8 h-5 bg-emerald-600 rounded"></div>
-             <div className="w-8 h-5 bg-white border border-slate-200 rounded"></div>
-             <div className="w-8 h-5 bg-red-600 rounded"></div>
-          </div>
-          <p className="mt-4 text-[10px] text-slate-400">لا يتطلب إعداد "Environment Variables" في Netlify</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-20" dir="rtl">
@@ -139,19 +63,18 @@ const App: React.FC = () => {
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-emerald-100 shadow-lg">DZ</div>
             <div>
               <h1 className="font-black text-slate-900 leading-none">Dzayer Voice</h1>
-              <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Premium AI Engine</span>
+              <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">الذكاء الاصطناعي الجزائري</span>
             </div>
           </div>
-          <button 
-            onClick={handleOpenKeySelector}
-            className="text-[10px] font-bold text-slate-400 border border-slate-200 px-3 py-1 rounded-full hover:bg-slate-50 transition-colors"
-          >
-            تغيير المفتاح
-          </button>
+          <div className="flex gap-1.5 opacity-80">
+            <div className="w-6 h-4 bg-emerald-600 rounded-[2px]"></div>
+            <div className="w-6 h-4 bg-white border border-slate-100 rounded-[2px]"></div>
+            <div className="w-6 h-4 bg-red-600 rounded-[2px]"></div>
+          </div>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 mt-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <main className="max-w-6xl mx-auto px-4 mt-12 animate-in fade-in duration-700">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
           {/* Main Input Area */}
@@ -159,7 +82,7 @@ const App: React.FC = () => {
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-8">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-black text-slate-800 text-lg">اكتب بالدارجة الجزائرية</h3>
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase">Input Field</span>
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase">النص المكتوب</span>
               </div>
               
               <textarea
@@ -224,7 +147,7 @@ const App: React.FC = () => {
             </button>
 
             {state.error && (
-              <div className="bg-red-50 text-red-600 p-6 rounded-3xl text-sm font-bold border border-red-100 animate-bounce text-center">
+              <div className="bg-red-50 text-red-600 p-6 rounded-3xl text-sm font-bold border border-red-100 text-center">
                 {state.error}
               </div>
             )}
@@ -279,11 +202,11 @@ const App: React.FC = () => {
                 ))}
               </div>
 
-              <div className="mt-8 p-6 bg-slate-900 rounded-3xl text-white relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
-                <h5 className="font-black text-xs mb-2 text-emerald-400">💡 نصيحة ذكية</h5>
+              <div className="mt-8 p-6 bg-slate-900 rounded-3xl text-white relative overflow-hidden shadow-xl">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
+                <h5 className="font-black text-xs mb-2 text-emerald-400">💡 معلومة</h5>
                 <p className="text-[10px] leading-relaxed text-slate-300">
-                  للحصول على نطق ممتاز للهجة الوهرانية أو القسنطينية، حاول كتابة الكلمات كما تُنطق في تلك الجهة.
+                  التطبيق يعمل مباشرة باستخدام تقنيات Gemini المتطورة لدعم اللهجة الجزائرية بشكل كامل.
                 </p>
               </div>
             </div>

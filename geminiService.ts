@@ -8,14 +8,12 @@ export async function generateAlgerianSpeech(
   voice: VoiceName, 
   region: AlgerianRegion
 ): Promise<string> {
-  // استخدام المفتاح مباشرة من process.env والذي يتم حقنه تلقائياً بواسطة نظام Key Selection
   const apiKey = process.env.API_KEY;
   
   if (!apiKey) {
-    throw new Error("KEY_NOT_FOUND");
+    throw new Error("API configuration missing");
   }
 
-  // إنشاء مثيل جديد للذكاء الاصطناعي عند كل طلب لضمان استخدام أحدث مفتاح
   const ai = new GoogleGenAI({ apiKey });
   
   const regionPrompts: Record<AlgerianRegion, string> = {
@@ -46,7 +44,7 @@ export async function generateAlgerianSpeech(
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) {
-      throw new Error("API_ERROR");
+      throw new Error("No audio data received");
     }
 
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -56,9 +54,7 @@ export async function generateAlgerianSpeech(
     const wavBlob = audioBufferToWav(audioBuffer);
     return URL.createObjectURL(wavBlob);
   } catch (error: any) {
-    if (error.message?.includes("entity was not found") || error.message?.includes("key")) {
-      throw new Error("KEY_INVALID");
-    }
+    console.error("Speech generation failed:", error);
     throw error;
   }
 }
