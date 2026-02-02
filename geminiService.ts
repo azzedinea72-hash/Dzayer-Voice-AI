@@ -3,14 +3,16 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { VoiceName } from "./types.ts";
 import { decode, decodeAudioData, audioBufferToWav } from "./audioUtils.ts";
 
-const API_KEY = (typeof process !== 'undefined' ? process.env.API_KEY : '') || "";
-
 export async function generateAlgerianSpeech(text: string, voice: VoiceName): Promise<string> {
-  if (!API_KEY) {
-    throw new Error("API Key is missing. Please check your Netlify environment variables.");
+  // استخدام المفتاح من البيئة مباشرة كما هو مطلوب
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("API_KEY_MISSING");
   }
 
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
+  // إنشاء نسخة جديدة في كل مرة لضمان استخدام المفتاح المحدث
+  const ai = new GoogleGenAI({ apiKey });
   const prompt = `Convert the following Algerian Darja text to natural sounding speech with a clear Algerian accent: "${text}"`;
 
   try {
@@ -29,7 +31,7 @@ export async function generateAlgerianSpeech(text: string, voice: VoiceName): Pr
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) {
-      throw new Error("No audio data returned from API");
+      throw new Error("لم يتم إرجاع بيانات صوتية من الخادم.");
     }
 
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -39,6 +41,9 @@ export async function generateAlgerianSpeech(text: string, voice: VoiceName): Pr
     const wavBlob = audioBufferToWav(audioBuffer);
     return URL.createObjectURL(wavBlob);
   } catch (error: any) {
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("INVALID_KEY");
+    }
     console.error("Speech generation error:", error);
     throw error;
   }
